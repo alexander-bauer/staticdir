@@ -1,3 +1,5 @@
+// package staticdir provides tools for transforming "resource" files
+// such as templated HTML into static content
 package staticdir
 
 import (
