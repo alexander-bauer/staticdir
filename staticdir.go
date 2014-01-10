@@ -19,10 +19,6 @@ type Translator struct {
 	ExcludeDir  func(os.FileInfo) bool
 	ExcludeFile func(os.FileInfo) bool
 
-	// DirMode is the FileMode that copied directories are created
-	// with.
-	DirMode os.FileMode
-
 	// CopyFunc is called when copying a source file to the target
 	// directory, after it has already been checked with
 	// ExcludeFile. It is passed the path to the source file, target
@@ -39,7 +35,6 @@ func New(source, target string) *Translator {
 		ExcludeDir:  ExcludeNone,
 		ExcludeFile: ExcludeNone,
 
-		DirMode:  0755,
 		CopyFunc: ColdCopy,
 	}
 }
@@ -56,7 +51,7 @@ func (t *Translator) CopyDir(subpath string) error {
 
 	// Create the matching subdirectory. If the error is of the
 	// "already extant" class, ignore it.
-	err = os.Mkdir(path.Join(t.Target, subpath), t.DirMode)
+	err = os.Mkdir(path.Join(t.Target, subpath), 0777)
 	if err != nil && !os.IsExist(err) {
 		return err
 	}
