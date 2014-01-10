@@ -1,9 +1,11 @@
 package staticdir
 
 import (
+	"html/template"
 	"io"
 	"os"
 	"path"
+	"strings"
 )
 
 type Translator struct {
@@ -41,7 +43,7 @@ func New(source, target string) *Translator {
 }
 
 func (t *Translator) Translate() error {
-	return nil
+	return t.CopyDir("")
 }
 
 func (t *Translator) CopyDir(subpath string) error {
@@ -50,9 +52,10 @@ func (t *Translator) CopyDir(subpath string) error {
 		return err
 	}
 
-	// Create the matching subdirectory.
+	// Create the matching subdirectory. If the error is of the
+	// "already extant" class, ignore it.
 	err = os.Mkdir(path.Join(t.Target, subpath), t.DirMode)
-	if err != nil {
+	if err != nil && !os.IsExist(err) {
 		return err
 	}
 
@@ -116,4 +119,40 @@ func ColdCopy(source, target string, fi os.FileInfo,
 	// Then just copy it.
 	_, err = io.Copy(out, in)
 	return err
+}
+
+// TemplateCopy copies a source file to a target file, discarding
+// other parameters, unless it has the extension ".tmpl", in which
+// case it is read as a template, and executed into the target file
+// with the data. The extension is removed. The template engine is
+// documented at html/template.
+func TemplateCopy(source, target string, fi os.FileInfo,
+	data interface{}) error {
+
+	// If the source name is not suffixed with .tmpl, send it to cold
+	// copy. There's no point in copying over the fileinfo or data, so
+	// pass nil.
+	if !strings.HasSuffix(source, ".tmpl") {
+		return ColdCopy(source, target, nil, nil)
+	} else {
+		// If so, then trim that extension from the target file.
+		target = strings.TrimSuffix(target, ".tmpl")
+	}
+
+	// Next, open the outfile. html/template handles the
+	// infile. Note that it strips out the ".tmpl" extension.
+	out, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Next, parse the template from the file.
+	tmpl, err := template.ParseFiles(source)
+	if err != nil {
+		return err
+	}
+
+	// Finally, write it to the file using conf as data.
+	return tmpl.Execute(out, data)
 }
